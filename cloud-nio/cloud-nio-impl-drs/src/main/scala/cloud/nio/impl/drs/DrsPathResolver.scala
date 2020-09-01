@@ -1,6 +1,6 @@
 package cloud.nio.impl.drs
 
-import java.time.{LocalDateTime, OffsetDateTime}
+import java.time.{OffsetDateTime, ZoneOffset}
 
 import cats.effect.{IO, Resource}
 import cats.instances.option._
@@ -77,7 +77,7 @@ final case class Url(url: String)
 final case class ChecksumObject(checksum: String, `type`: String)
 final case class DrsDataObject(size: Option[Long],
                                checksums: Option[Array[ChecksumObject]],
-                               updated: Option[String],
+                               updated: Option[OffsetDateTime],
                                urls: Array[Url])
 final case class DrsObject(data_object: DrsDataObject)
 final case class SADataObject(data: Json)
@@ -85,7 +85,7 @@ final case class SADataObject(data: Json)
 final case class MarthaV2Response(dos: DrsObject, googleServiceAccount: Option[SADataObject])
 
 final case class MarthaResponse(size: Option[Long],
-                                timeUpdated: Option[String],
+                                timeUpdated: Option[OffsetDateTime],
                                 bucket: Option[String],
                                 name: Option[String],
                                 gsUri: Option[String],
@@ -94,6 +94,8 @@ final case class MarthaResponse(size: Option[Long],
 
 object MarthaResponseSupport {
 
+  implicit lazy val dosDateTimeDecoder: Decoder[OffsetDateTime] =
+    Decoder.decodeOffsetDateTime or Decoder.decodeLocalDateTime.map(_.atOffset(ZoneOffset.UTC))
   implicit lazy val urlDecoder: Decoder[Url] = deriveDecoder
   implicit lazy val checksumDecoder: Decoder[ChecksumObject] = deriveDecoder
   implicit lazy val dataObjectDecoder: Decoder[DrsDataObject] = deriveDecoder
@@ -121,14 +123,7 @@ object MarthaResponseSupport {
     val dataObject = response.dos.data_object
     val size = dataObject.size
 
-    val timeUpdated: Option[String] = dataObject.updated map { time: String =>
-      if (time.endsWith("Z")) {
-        OffsetDateTime.parse(time).toString
-      } else {
-        LocalDateTime.parse(time).toString
-      }
-    }
-
+    val timeUpdated = dataObject.updated
     val hashesMap = dataObject.checksums.map(convertChecksumsToHashesMap)
     val gcsUrl = dataObject.urls.find(_.url.startsWith(GcsScheme)).map(_.url)
     val (bucketName, fileName) = getGcsBucketAndName(gcsUrl)

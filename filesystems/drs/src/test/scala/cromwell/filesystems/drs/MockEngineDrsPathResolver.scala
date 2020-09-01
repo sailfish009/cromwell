@@ -1,6 +1,7 @@
 package cromwell.filesystems.drs
 
 import java.nio.channels.ReadableByteChannel
+import java.time.OffsetDateTime
 
 import cats.effect.IO
 import cloud.nio.impl.drs._
@@ -31,7 +32,7 @@ class MockEngineDrsPathResolver(drsConfig: DrsConfig,
 
     val drsResponse = MarthaResponse(
       size = Option(156018255),
-      timeUpdated = Option("2020-04-27T15:56:09.696Z"),
+      timeUpdated = Option(OffsetDateTime.parse("2020-04-27T15:56:09.696Z")),
       bucket = Option("my-bucket"),
       name = Option("dd3c716a-852f-4d74-9073-9920e835ec8a/f3b148ac-1802-4acc-a0b9-610ea266fb61"),
       gsUri = url,

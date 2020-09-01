@@ -1,7 +1,7 @@
 package cloud.nio.impl.drs
 
 import java.nio.file.attribute.FileTime
-import java.time.{LocalDateTime, ZoneOffset}
+import java.time.OffsetDateTime
 
 import cats.effect.IO
 import cloud.nio.impl.drs.DrsCloudNioRegularFileAttributes._
@@ -11,13 +11,14 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 
 class DrsCloudNioRegularFileAttributes(drsPath: String, drsPathResolver: EngineDrsPathResolver) extends CloudNioRegularFileAttributes{
 
-  private def convertToFileTime(timeInString: String): IO[FileTime] = {
-    //Here timeInString is assumed to be a ISO-8601 DateTime without timezone
-    IO(LocalDateTime.parse(timeInString).toInstant(ZoneOffset.UTC)).map(FileTime.from).handleErrorWith {
+  private def convertToFileTime(offsetDateTime: OffsetDateTime): IO[FileTime] = {
+    IO.pure(offsetDateTime)
+      .map(_.toInstant())
+      .map(FileTime.from)
+      .handleErrorWith {
       e => IO.raiseError(new RuntimeException(s"Error while parsing 'updated' value from Martha to FileTime for DRS path $drsPath. Reason: ${ExceptionUtils.getMessage(e)}."))
     }
   }
-
 
   override def fileHash: Option[String] = {
     drsPathResolver.resolveDrsThroughMartha(drsPath).map( marthaResponse => {
@@ -32,8 +33,8 @@ class DrsCloudNioRegularFileAttributes(drsPath: String, drsPathResolver: EngineD
   override def lastModifiedTime(): FileTime = {
     val lastModifiedIO = for {
       marthaResponse <- drsPathResolver.resolveDrsThroughMartha(drsPath)
-      lastModifiedInString <- IO.fromEither(marthaResponse.timeUpdated.toRight(createMissingKeyException(drsPath, "updated")))
-      lastModified <- convertToFileTime(lastModifiedInString)
+      timeUpdated <- IO.fromEither(marthaResponse.timeUpdated.toRight(createMissingKeyException(drsPath, "updated")))
+      lastModified <- convertToFileTime(timeUpdated)
     } yield lastModified
 
     lastModifiedIO.unsafeRunSync()
